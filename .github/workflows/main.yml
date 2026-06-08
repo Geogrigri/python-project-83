@@ -11,6 +11,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      SECRET_KEY: test-secret-key
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/page_analyzer_test
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: page_analyzer_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d page_analyzer_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -18,10 +37,18 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Set up Python
-        run: uv python install
+        run: uv python install 3.12
 
       - name: Install dependencies
         run: make install
 
+      - name: Prepare database
+        run: psql -d "$DATABASE_URL" -f database.sql
+
       - name: Run linter
         run: make lint
+
+      - name: SonarQube Cloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
