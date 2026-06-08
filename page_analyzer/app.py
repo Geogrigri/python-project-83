@@ -2,6 +2,7 @@ import os
 from datetime import date
 from urllib.parse import urlparse
 
+import requests
 import validators
 from dotenv import load_dotenv
 from flask import (
@@ -89,21 +90,20 @@ def urls_get():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT
+                SELECT DISTINCT ON (urls.id)
                     urls.id,
                     urls.name,
-                    MAX(url_checks.created_at) AS last_check_created_at
+                    url_checks.created_at AS last_check_created_at,
+                    url_checks.status_code AS last_check_status_code
                 FROM urls
                 LEFT JOIN url_checks
                     ON urls.id = url_checks.url_id
-                GROUP BY urls.id
-                ORDER BY urls.id DESC
+                ORDER BY urls.id DESC, url_checks.id DESC
                 """
             )
             urls = cur.fetchall()
 
     return render_template("urls.html", urls=urls)
-
 
 @app.get("/urls/<int:id>")
 def url_get(id):
@@ -141,20 +141,39 @@ def url_get(id):
 
 @app.post("/urls/<int:id>/checks")
 def checks_post(id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, name
+                FROM urls
+                WHERE id = %s
+                """,
+                (id,),
+            )
+            url = cur.fetchone()
+
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO url_checks (url_id, created_at)
-                    VALUES (%s, %s)
-                    """,
-                    (id, date.today()),
-                )
-                conn.commit()
-
-        flash("Страница успешно проверена", "success")
-    except Exception:
+        response = requests.get(url["name"], timeout=10)
+        response.raise_for_status()
+    except requests.RequestException:
         flash("Произошла ошибка при проверке", "danger")
+        return redirect(url_for("url_get", id=id))
 
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO url_checks (
+                    url_id,
+                    status_code,
+                    created_at
+                )
+                VALUES (%s, %s, %s)
+                """,
+                (id, response.status_code, date.today()),
+            )
+            conn.commit()
+
+    flash("Страница успешно проверена", "success")
     return redirect(url_for("url_get", id=id))

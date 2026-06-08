@@ -22,7 +22,7 @@
           </a>
         </td>
         <td>{{ url.last_check_created_at or '' }}</td>
-        <td></td>
+        <td>{{ url.last_check_status_code or '' }}</td>
       </tr>
     {% endfor %}
   </tbody>
