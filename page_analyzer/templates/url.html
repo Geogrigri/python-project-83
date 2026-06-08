@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1>Сайт: {{ url.name }}</h1>
+
+<table class="table table-bordered" data-test="url">
+  <tbody>
+    <tr>
+      <td>ID</td>
+      <td>{{ url.id }}</td>
+    </tr>
+    <tr>
+      <td>Имя</td>
+      <td>{{ url.name }}</td>
+    </tr>
+    <tr>
+      <td>Дата создания</td>
+      <td>{{ url.created_at }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 class="mt-5">Проверки</h2>
+
+<form action="#" method="post">
+  <input type="submit" class="btn btn-primary" value="Запустить проверку">
+</form>
+
+<table class="table table-bordered table-hover mt-2">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Код ответа</th>
+      <th>h1</th>
+      <th>title</th>
+      <th>description</th>
+      <th>Дата создания</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+{% endblock %}
