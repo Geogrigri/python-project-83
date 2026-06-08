@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 import requests
 import validators
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from flask import (
     Flask,
@@ -22,6 +23,17 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
+@app.template_filter("truncate_text")
+def truncate_text(value):
+    if value is None:
+        return ""
+
+    value = str(value)
+
+    if len(value) > 200:
+        return f"{value[:200]}...."
+
+    return value
 
 def normalize_url(url):
     parsed_url = urlparse(url)
@@ -38,6 +50,25 @@ def validate_url(url):
         errors.append("Некорректный URL")
 
     return errors
+
+def get_text_or_none(tag):
+    if tag:
+        return tag.get_text(strip=True)
+    return None
+
+def parse_page(html):
+    soup = BeautifulSoup(html, "html.parser")
+
+    h1 = get_text_or_none(soup.find("h1"))
+    title = get_text_or_none(soup.find("title"))
+
+    meta_description = soup.find("meta", attrs={"name": "description"})
+    description = None
+
+    if meta_description:
+        description = meta_description.get("content")
+
+    return h1, title, description
 
 
 @app.route("/")
@@ -160,6 +191,8 @@ def checks_post(id):
         flash("Произошла ошибка при проверке", "danger")
         return redirect(url_for("url_get", id=id))
 
+    h1, title, description = parse_page(response.text)
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -167,11 +200,21 @@ def checks_post(id):
                 INSERT INTO url_checks (
                     url_id,
                     status_code,
+                    h1,
+                    title,
+                    description,
                     created_at
                 )
-                VALUES (%s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (id, response.status_code, date.today()),
+                (
+                    id,
+                    response.status_code,
+                    h1,
+                    title,
+                    description,
+                    date.today(),
+                ),
             )
             conn.commit()
 
