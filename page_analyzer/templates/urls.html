@@ -21,7 +21,7 @@
             {{ url.name }}
           </a>
         </td>
-        <td></td>
+        <td>{{ url.last_check_created_at or '' }}</td>
         <td></td>
       </tr>
     {% endfor %}

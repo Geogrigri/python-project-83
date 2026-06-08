@@ -89,9 +89,15 @@ def urls_get():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, name, created_at
+                SELECT
+                    urls.id,
+                    urls.name,
+                    MAX(url_checks.created_at) AS last_check_created_at
                 FROM urls
-                ORDER BY id DESC
+                LEFT JOIN url_checks
+                    ON urls.id = url_checks.url_id
+                GROUP BY urls.id
+                ORDER BY urls.id DESC
                 """
             )
             urls = cur.fetchall()
@@ -113,4 +119,42 @@ def url_get(id):
             )
             url = cur.fetchone()
 
-    return render_template("url.html", url=url)
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    status_code,
+                    h1,
+                    title,
+                    description,
+                    created_at
+                FROM url_checks
+                WHERE url_id = %s
+                ORDER BY id DESC
+                """,
+                (id,),
+            )
+            checks = cur.fetchall()
+
+    return render_template("url.html", url=url, checks=checks)
+
+
+@app.post("/urls/<int:id>/checks")
+def checks_post(id):
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO url_checks (url_id, created_at)
+                    VALUES (%s, %s)
+                    """,
+                    (id, date.today()),
+                )
+                conn.commit()
+
+        flash("Страница успешно проверена", "success")
+    except Exception:
+        flash("Произошла ошибка при проверке", "danger")
+
+    return redirect(url_for("url_get", id=id))
