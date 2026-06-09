@@ -31,7 +31,7 @@ def truncate_text(value):
     value = str(value)
 
     if len(value) > 200:
-        return f"{value[:200]}...."
+        return f"{value[:200]}..."
 
     return value
 
