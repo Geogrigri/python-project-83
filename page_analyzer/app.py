@@ -1,10 +1,7 @@
 import os
 from datetime import date
-from urllib.parse import urlparse
 
 import requests
-import validators
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from flask import (
     Flask,
@@ -16,12 +13,14 @@ from flask import (
 )
 
 from page_analyzer.db import get_connection
-
+from page_analyzer.parser import parse_page
+from page_analyzer.url import normalize_url, validate_url
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+
 
 @app.template_filter("truncate_text")
 def truncate_text(value):
@@ -34,41 +33,6 @@ def truncate_text(value):
         return f"{value[:200]}..."
 
     return value
-
-def normalize_url(url):
-    parsed_url = urlparse(url)
-    return f"{parsed_url.scheme}://{parsed_url.netloc}"
-
-
-def validate_url(url):
-    errors = []
-
-    if len(url) > 255:
-        errors.append("URL превышает 255 символов")
-
-    if not validators.url(url):
-        errors.append("Некорректный URL")
-
-    return errors
-
-def get_text_or_none(tag):
-    if tag:
-        return tag.get_text(strip=True)
-    return None
-
-def parse_page(html):
-    soup = BeautifulSoup(html, "html.parser")
-
-    h1 = get_text_or_none(soup.find("h1"))
-    title = get_text_or_none(soup.find("title"))
-
-    meta_description = soup.find("meta", attrs={"name": "description"})
-    description = None
-
-    if meta_description:
-        description = meta_description.get("content")
-
-    return h1, title, description
 
 
 @app.route("/")
@@ -136,6 +100,7 @@ def urls_get():
 
     return render_template("urls.html", urls=urls)
 
+
 @app.get("/urls/<int:id>")
 def url_get(id):
     with get_connection() as conn:
@@ -191,7 +156,7 @@ def checks_post(id):
         flash("Произошла ошибка при проверке", "danger")
         return redirect(url_for("url_get", id=id))
 
-    h1, title, description = parse_page(response.text)
+    page_data = parse_page(response.text)
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -210,9 +175,9 @@ def checks_post(id):
                 (
                     id,
                     response.status_code,
-                    h1,
-                    title,
-                    description,
+                    page_data["h1"],
+                    page_data["title"],
+                    page_data["description"],
                     date.today(),
                 ),
             )
