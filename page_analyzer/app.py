@@ -14,7 +14,7 @@ from flask import (
 
 from page_analyzer.db import get_connection
 from page_analyzer.parser import parse_page
-from page_analyzer.url import normalize_url, validate_url
+from page_analyzer.url_processing import normalize_url, validate_url
 
 load_dotenv()
 
