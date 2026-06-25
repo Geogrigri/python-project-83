@@ -35,7 +35,7 @@ def truncate_text(value):
     return value
 
 
-@app.route("/")
+@app.get("/")
 def index():
     return render_template("index.html")
 
